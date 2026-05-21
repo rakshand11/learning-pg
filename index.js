@@ -62,6 +62,90 @@ app.get("/drop-table", async (req, res) => {
   }
 });
 
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email, age } = req.body;
+    const result = await pool.query(
+      "INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING *",
+      [name, email, age],
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/all-user", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users");
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ msg: "Internal server error" }, error);
+  }
+});
+
+app.get("/user/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+    if (result.rows.length === 0)
+      return res.status(404).json({
+        msg: "User not found",
+      });
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({
+      msg: "Internal server error",
+    });
+  }
+});
+
+app.put("/update-user/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, age } = req.body;
+
+    const current = await pool.query("SELECT * FROM users WHERE id=$1", [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const updatedName = name ?? current.rows[0].name; // ?? if name is null or undefined use the current value from the db
+    const updatedAge = age ?? current.rows[0].age;
+
+    const result = await pool.query(
+      "UPDATE users SET name=$1, age=$2 WHERE id=$3 RETURNING *",
+      [updatedName, updatedAge, id],
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ msg: "Internal server error" });
+  }
+});
+
+app.delete("/delete-user/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "DELETE FROM users WHERE id=$1 RETURNING*",
+      [id],
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({
+        msg: "User not found",
+      });
+    }
+    res.status(200).json({
+      msg: "User deleted successfully",
+    });
+    return;
+  } catch (error) {
+    res.status(500).json({
+      msg: "Internal server error",
+    });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
